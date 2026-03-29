@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 PORT="${AGENTSERV_PORT:-4002}"
-HOST="${AGENTSERV_HOST:-127.0.0.1}"
+HOST="${AGENTSERV_HOST:-0.0.0.0}"
 CONFIG="${AGENTSERV_CONFIG:-$SCRIPT_DIR/configs/tool_calling_agent.py}"
 VENV_DIR="${AGENTSERV_VENV_DIR:-$SCRIPT_DIR/.venv}"
 PYTHON_VERSION="${AGENTSERV_PYTHON_VERSION:-3.12}"
@@ -59,17 +59,36 @@ run_agentserv() {
 
 http_json() {
     local path="$1"
-    "$PYTHON_BIN" - "$HOST" "$PORT" "$path" <<'PY'
+    "$PYTHON_BIN" - "$PORT" "$path" <<'PY'
 import json
 import sys
 import urllib.request
 
-host, port, path = sys.argv[1:4]
-url = f"http://{host}:{port}{path}"
+port, path = sys.argv[1:3]
+url = f"http://127.0.0.1:{port}{path}"
 req = urllib.request.Request(url, headers={"Accept": "application/json"})
 with urllib.request.urlopen(req, timeout=5) as response:
     payload = json.loads(response.read().decode("utf-8"))
 print(json.dumps(payload, indent=2))
+PY
+}
+
+access_urls() {
+    "$PYTHON_BIN" - "$PORT" <<'PY'
+import socket
+import sys
+
+port = sys.argv[1]
+hosts = ["127.0.0.1"]
+try:
+    for addr in sorted({item[4][0] for item in socket.getaddrinfo(socket.gethostname(), None, family=socket.AF_INET)}):
+        if addr not in hosts and addr != "0.0.0.0":
+            hosts.append(addr)
+except Exception:
+    pass
+
+for host in hosts:
+    print(f"http://{host}:{port}/")
 PY
 }
 
@@ -155,7 +174,9 @@ start_service() {
 
     if [ "$mode" = "foreground" ]; then
         echo "Starting in foreground on $HOST:$PORT"
-        echo "  Dashboard: http://$HOST:$PORT/"
+        while IFS= read -r url; do
+            echo "  Dashboard: $url"
+        done < <(access_urls)
         echo "  Health:    ./agentserv.sh health"
         echo "  Status:    ./agentserv.sh status"
         echo ""
@@ -171,7 +192,9 @@ start_service() {
 
     echo ""
     echo "Starting AgentServ on $HOST:$PORT"
-    echo "  Dashboard: http://$HOST:$PORT/"
+    while IFS= read -r url; do
+        echo "  Dashboard: $url"
+    done < <(access_urls)
     echo "  Health:    ./agentserv.sh health"
     echo "  Status:    ./agentserv.sh status"
     echo ""

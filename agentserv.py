@@ -5,6 +5,7 @@ from collections import deque
 import importlib
 import json
 import os
+import socket
 import threading
 import time
 import urllib.request
@@ -975,7 +976,7 @@ def parse_args() -> argparse.Namespace:
             os.path.join(os.path.dirname(__file__), "configs", "tool_calling_agent.py"),
         ),
     )
-    parser.add_argument("--host", default=os.getenv("AGENTSERV_HOST", "127.0.0.1"))
+    parser.add_argument("--host", default=os.getenv("AGENTSERV_HOST", "0.0.0.0"))
     parser.add_argument("--port", type=int, default=int(os.getenv("AGENTSERV_PORT", "4002")))
     parser.add_argument("--agent-name", default=os.getenv("AGENTSERV_AGENT_NAME", "tool_calling"))
     parser.add_argument("--mcp-url", default=os.getenv("AGENTSERV_MCP_URL", "http://127.0.0.1:4001/hub/mcp"))
@@ -1047,6 +1048,24 @@ class AgentServRuntime:
             if source["name"] == "agent_runtime":
                 return source["path"]
         return None
+
+    def access_hosts(self) -> List[str]:
+        hosts = ["127.0.0.1"]
+        try:
+            candidates = sorted({addr[4][0] for addr in socket.getaddrinfo(socket.gethostname(), None, family=socket.AF_INET)})
+            for candidate in candidates:
+                if candidate not in hosts and candidate != "0.0.0.0":
+                    hosts.append(candidate)
+        except Exception:
+            pass
+        configured_host = self.args.host
+        if configured_host not in hosts and configured_host != "0.0.0.0":
+            hosts.insert(0, configured_host)
+        return hosts
+
+    def access_urls(self) -> List[str]:
+        port = self.args.port
+        return [f"http://{host}:{port}" for host in self.access_hosts()]
 
     def _timestamp(self, value: Optional[float] = None) -> str:
         actual = time.time() if value is None else value
@@ -1496,13 +1515,14 @@ class AgentServRuntime:
         }
 
     def docs_payload(self) -> Dict[str, Any]:
-        host = self.args.host
         port = self.args.port
-        base_url = f"http://{host}:{port}"
+        access_urls = self.access_urls()
+        primary_url = access_urls[0]
         return {
             "title": "AgentServ Control Center",
             "summary": "Single-page dashboard for viewing gateway health, runtime components, task execution, logs, and management docs.",
             "how_to_use": "Open the root page for the dashboard, use the Run Task tab to execute the selected agent, Tasks for history, Logs for tailing gateway and agent logs, and Docs for service endpoints and operational commands.",
+            "access_urls": access_urls,
             "endpoints": [
                 {"method": "GET", "path": "/", "purpose": "Control UI dashboard"},
                 {"method": "GET", "path": "/health", "purpose": "Gateway health and dependency checks"},
@@ -1519,9 +1539,9 @@ class AgentServRuntime:
             "services": [
                 {
                     "name": "agentserv",
-                    "url": base_url,
+                    "url": primary_url,
                     "purpose": "Gateway that exposes the control API and delegates tasks to the selected agent.",
-                    "manage": "Launch with ./agentserv.sh start, use ./agentserv.sh start --foreground for foreground mode, and manage lifecycle with ./agentserv.sh stop or ./agentserv.sh restart.",
+                    "manage": f"Launch with ./agentserv.sh start, bind on all interfaces by default, and access it via {', '.join(access_urls)}.",
                 },
                 {
                     "name": "aiserv",
@@ -1543,7 +1563,8 @@ class AgentServRuntime:
                 },
             ],
             "commands": [
-                {"name": "Open Dashboard", "command": f"open {base_url}/"},
+                {"name": "Open Dashboard", "command": f"open {primary_url}/"},
+                {"name": "Open LAN Dashboard", "command": f"open http://192.168.31.105:{port}/"},
                 {"name": "Gateway Health", "command": "cd /Users/jace/code/agentserv && ./agentserv.sh health"},
                 {"name": "Gateway Status", "command": "cd /Users/jace/code/agentserv && ./agentserv.sh status"},
                 {"name": "Start AgentServ", "command": "cd /Users/jace/code/agentserv && ./agentserv.sh start"},
