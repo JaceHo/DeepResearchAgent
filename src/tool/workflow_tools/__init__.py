@@ -1,16 +1,24 @@
-"""
-Agent Tools Module
+from importlib import import_module
 
-This module contains tools that are specifically designed for agent workflows,
-including browser automation and deep research capabilities.
-"""
-from .browser import BrowserTool
-from .deep_researcher import DeepResearcherTool
-from .deep_analyzer import DeepAnalyzerTool
-from .reporter import ReporterTool
-from .tool_generator import ToolGeneratorTool
-from .skill_generator import SkillGeneratorTool
-from .todo import TodoTool
+_MODULE_MAP = {
+    "BrowserTool": ".browser",
+    "DeepResearcherTool": ".deep_researcher",
+    "DeepAnalyzerTool": ".deep_analyzer",
+    "ReporterTool": ".reporter",
+    "ToolGeneratorTool": ".tool_generator",
+    "SkillGeneratorTool": ".skill_generator",
+    "TodoTool": ".todo",
+}
+
+
+def __getattr__(name: str):
+    module_name = _MODULE_MAP.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(module_name, __name__)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "BrowserTool",

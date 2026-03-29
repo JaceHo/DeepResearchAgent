@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.agentserv.gateway</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/jace/code/agentserv/agentserv.sh</string>
+        <string>start-fg</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jace/code/agentserv</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/jace</string>
+        <key>LANG</key>
+        <string>en_US.UTF-8</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>AGENTSERV_HOST</key>
+        <string>127.0.0.1</string>
+        <key>AGENTSERV_PORT</key>
+        <string>4002</string>
+        <key>AGENTSERV_CONFIG</key>
+        <string>/Users/jace/code/agentserv/configs/tool_calling_agent.py</string>
+        <key>AGENTSERV_MCP_URL</key>
+        <string>http://127.0.0.1:4001/hub/mcp</string>
+        <key>AGENTSERV_MEMORY_URL</key>
+        <string>http://127.0.0.1:18800/stats</string>
+        <key>CRAWL4_AI_BASE_DIRECTORY</key>
+        <string>/Users/jace/code/agentserv/workdir</string>
+        <key>DYLD_FALLBACK_LIBRARY_PATH</key>
+        <string>/opt/homebrew/opt/cairo/lib</string>
+        <key>OPENROUTER_API_BASE</key>
+        <string>http://127.0.0.1:4000/v1</string>
+        <key>OPENROUTER_API_KEY</key>
+        <string>sk-aiserv-local-dev</string>
+        <key>ANTHROPIC_API_BASE</key>
+        <string>http://127.0.0.1:4000</string>
+        <key>ANTHROPIC_API_KEY</key>
+        <string>sk-aiserv-local-dev</string>
+        <key>ANTHROPIC_AUTH_TOKEN</key>
+        <string>sk-aiserv-local-dev</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jace/code/agentserv/logs/agentserv.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/jace/code/agentserv/logs/agentserv.error.log</string>
+</dict>
+</plist>

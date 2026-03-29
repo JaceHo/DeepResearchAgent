@@ -43,7 +43,8 @@ class TracerVisualizer:
         
         try:
             with open(self.tracer_json_path, 'r', encoding='utf-8') as f:
-                new_records = json.load(f)
+                raw_data = json.load(f)
+            new_records = self._normalize_records(raw_data)
             
             # Update records with thread lock
             with self._data_lock:
@@ -52,6 +53,48 @@ class TracerVisualizer:
             print(f"Data loaded: {len(self.records)} records from {self.tracer_json_path}")
         except Exception as e:
             print(f"Error loading data: {e}")
+
+    def _normalize_records(self, raw_data: Any) -> List[Dict[str, Any]]:
+        """Normalize tracer payloads into a flat record list."""
+        if isinstance(raw_data, list):
+            return [record for record in raw_data if isinstance(record, dict)]
+
+        if not isinstance(raw_data, dict):
+            return []
+
+        sessions = raw_data.get("sessions")
+        if not isinstance(sessions, dict):
+            return [raw_data] if isinstance(raw_data, dict) else []
+
+        records: List[Dict[str, Any]] = []
+        session_ids = raw_data.get("metadata", {}).get("session_ids", [])
+        ordered_session_ids = session_ids if isinstance(session_ids, list) else list(sessions.keys())
+
+        for session_id in ordered_session_ids:
+            session_records = sessions.get(session_id, [])
+            if not isinstance(session_records, list):
+                continue
+            for record in session_records:
+                if not isinstance(record, dict):
+                    continue
+                normalized_record = dict(record)
+                if "action" not in normalized_record and "tool" in normalized_record:
+                    normalized_record["action"] = normalized_record.get("tool")
+                records.append(normalized_record)
+
+        if not records:
+            for session_records in sessions.values():
+                if not isinstance(session_records, list):
+                    continue
+                for record in session_records:
+                    if not isinstance(record, dict):
+                        continue
+                    normalized_record = dict(record)
+                    if "action" not in normalized_record and "tool" in normalized_record:
+                        normalized_record["action"] = normalized_record.get("tool")
+                    records.append(normalized_record)
+
+        return records
     
     def _auto_reload_data(self):
         """Auto-reload data every 60 seconds in background thread."""
@@ -66,6 +109,8 @@ class TracerVisualizer:
         """
         try:
             observation = record.get("observation", {})
+            if not isinstance(observation, dict):
+                return None
             if "online_hyperliquid" in observation:
                 hyperliquid = observation.get("online_hyperliquid", {})
             elif "offline_hyperliquid" in observation:
@@ -114,9 +159,11 @@ class TracerVisualizer:
         actions = []
         
         # Try different possible structures
-        action_data = record.get("action", {})
+        action_data = record.get("action")
+        if action_data is None:
+            action_data = record.get("tool", {})
         if isinstance(action_data, dict):
-            action_list = action_data.get("action", [])
+            action_list = action_data.get("action", action_data.get("actions", []))
             thinking = action_data.get("thinking")
         else:
             action_list = []
@@ -169,6 +216,8 @@ class TracerVisualizer:
         prices: Dict[str, Optional[float]] = {}
         try:
             observation = record.get("observation", {})
+            if not isinstance(observation, dict):
+                return prices
             
             # Try offline_hyperliquid first, then online_hyperliquid
             if "offline_hyperliquid" in observation:
@@ -684,19 +733,13 @@ class TracerVisualizer:
                 self._load_data()
                 
                 data = self._prepare_chart_data()
-                
-                # Check if we have data
-                if not data["timestamps"]:
-                    return jsonify({
-                        "error": "No data available",
-                        "message": "No account values found in records"
-                    }), 400
-                
                 account_value_chart = self._create_account_value_chart(data)
                 returns_chart = self._create_returns_chart(data)
                 crypto_prices_chart = self._create_crypto_prices_chart(data)
                 
                 return jsonify({
+                    "has_data": bool(data["timestamps"]),
+                    "message": None if data["timestamps"] else "No account values found in records",
                     "account_value_chart": account_value_chart,
                     "returns_chart": returns_chart,
                     "crypto_prices_chart": crypto_prices_chart,
@@ -740,4 +783,3 @@ class TracerVisualizer:
             self.app.run(host='0.0.0.0', port=self.port, debug=debug)
         finally:
             self.stop()
-

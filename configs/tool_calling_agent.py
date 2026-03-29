@@ -22,6 +22,7 @@ log_path = "agent.log"
 use_local_proxy = True
 version = "0.1.0"
 model_name = "openrouter/gemini-3-flash-preview"
+agent_model_name = "openrouter/o3"
 # model_name = "openrouter/claude-sonnet-4.5"
 
 env_names = [
@@ -126,7 +127,7 @@ file_system_environment.update(
 #-----------------TOOL CALLING AGENT CONFIG-----------------
 tool_calling_agent.update(
     workdir=workdir,
-    model_name=model_name,
+    model_name=agent_model_name,
     memory_name=memory_names[0],
     require_grad=False,
     use_memory=True,

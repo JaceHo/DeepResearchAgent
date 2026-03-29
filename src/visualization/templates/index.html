@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tracer Visualization</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,6 +27,24 @@
         }
         .chart-container {
             margin-bottom: 40px;
+        }
+        .status-banner {
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status-banner.info {
+            display: block;
+            color: #0c5460;
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+        }
+        .status-banner.error {
+            display: block;
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
         }
         .chart-title {
             font-size: 18px;
@@ -101,6 +119,7 @@
 <body>
     <div class="container">
         <h1>Tracer Visualization</h1>
+        <div id="status-banner" class="status-banner"></div>
         
         <div class="chart-container">
             <div class="chart-title">Account Value Over Time</div>
@@ -135,14 +154,20 @@
         let actionPoints = [];
         let currentPointIndex = -1;
 
+        function setStatus(message, level = 'info') {
+            const banner = document.getElementById('status-banner');
+            if (!message) {
+                banner.textContent = '';
+                banner.className = 'status-banner';
+                return;
+            }
+            banner.textContent = message;
+            banner.className = 'status-banner ' + level;
+        }
+
         // Load data and render charts
         fetch('/api/data')
             .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        throw new Error(err.message || `HTTP error! status: ${response.status}`);
-                    });
-                }
                 return response.json();
             })
             .then(data => {
@@ -152,11 +177,10 @@
                     actionPointsCount: data.action_points ? data.action_points.length : 0
                 });
                 
-                if (data.error) {
-                    console.error('API error:', data.error);
-                    document.getElementById('account-value-chart').innerHTML = 
-                        '<p style="color: red; padding: 20px;">Error: ' + data.message + '</p>';
-                    return;
+                if (data.message) {
+                    setStatus(data.message, data.has_data ? 'info' : 'info');
+                } else {
+                    setStatus('');
                 }
                 
                 actionPoints = data.action_points || [];
@@ -240,8 +264,7 @@
             })
             .catch(error => {
                 console.error('Error loading data:', error);
-                document.getElementById('account-value-chart').innerHTML = 
-                    '<p style="color: red; padding: 20px;">Error loading data: ' + error.message + '</p>';
+                setStatus('Error loading data: ' + error.message, 'error');
             });
 
         function showActionDetails(point) {
@@ -337,4 +360,3 @@
     </script>
 </body>
 </html>
-
